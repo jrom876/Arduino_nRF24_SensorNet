@@ -134,7 +134,7 @@ void loop() {
   }
   else{
     validCO2Flag = false;
-    digitalWrite(speakerOut, LOW); // The Piezo buzzer, LOW == Off
+    digitalWrite(speakerOut, LOW); 
   } 
 }
 
