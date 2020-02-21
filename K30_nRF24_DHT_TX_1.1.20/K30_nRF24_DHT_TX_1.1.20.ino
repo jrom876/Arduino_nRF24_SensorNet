@@ -70,7 +70,7 @@ const uint32_t pipe1 = 0xC6C6C6C0;
 //=============================
 //==== Instantiate modules ====
 //=============================
-RF24 radio(CE,SS);  // NRF24L01 used SPI pins + Pin 9 and 10 on the UNO
+RF24 radio(CE,SS);  // NRF24L01 uses SPI pins + Pin 9 and 10 on the UNO
 K30_I2C k30_i2c = K30_I2C(0x68);
 DHT dht(DHTPIN, DHTTYPE);
 //=============================
