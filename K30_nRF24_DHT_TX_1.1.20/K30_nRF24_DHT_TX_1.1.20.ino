@@ -86,7 +86,6 @@ float hic = 0;
 bool validCO2Flag = false;
 
 // Used to store value received by the NRF24L01
-//uint32_t SentMessage[1] = {0};
 uint32_t SentMessage[1] = {0};
 
 //=========================
@@ -108,7 +107,7 @@ void setup() {
   //radio.setDataRate( RF24_1MBPS );  
   radio.openWritingPipe(pipe1); // Get NRF24L01 ready to transmit
   radio.setPALevel(RF24_PA_MIN); // MIN, LOW, HIGH, and MAX
-  radio.stopListening(); // Sets radio to Transmitter
+  radio.stopListening(); // Sets radio to Transmitter mode
   Serial.println("RF Comms Starting...");
 }
 
@@ -221,7 +220,7 @@ void sendMessage(bool validCO2Flag){
     Serial.print(F("Heat Index: "));
     Serial.println(String(f)+"C");
     myData.type = 'j';
-    myData.value = f;
+    myData.value = hic;
     //Serial.println(SentMessage[0]+"C");
     radio.write(&SentMessage, sizeof(SentMessage));
     //delay(2000);    
