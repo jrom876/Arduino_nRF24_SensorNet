@@ -112,7 +112,7 @@ void setup(void){
     radio.begin(); // Start the NRF24L01
     radio.setDataRate( RF24_250KBPS );    
     radio.openReadingPipe(1,pipe1); // Get NRF24L01 ready to receive
-    radio.setPALevel(RF24_PA_LOW);
+    radio.setPALevel(RF24_PA_MIN);
     radio.startListening(); // Listen to see if information received
 }
 
