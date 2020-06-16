@@ -91,12 +91,14 @@ float hif = 0;
 float hic = 0;
 int sensorOffset = 0;
 bool sync = false;
+int val = 0;
+int typ = 0; 
 
 // Used to store value received by the NRF24L01
-uint32_t ReceivedMessage[1]; 
+//uint32_t ReceivedMessage[1]; 
 
 // Used to store value received by the NRF24L01
-//struct dataStruct ReceivedMessage[1];
+struct dataStruct ReceivedMessage[1] = {0};
 
 //=========================
 //========= Setup =========
@@ -120,30 +122,20 @@ void setup(void) {
     pinMode(MISO, INPUT); // 12
     pinMode(MOSI, OUTPUT); // 11
     pinMode(SS, OUTPUT); // 10
-    pinMode(CE, OUTPUT); // 9
-  
+    pinMode(CE, OUTPUT); // 9  
     pinMode(RS_LCD, OUTPUT); // 7
     pinMode(EN_LCD, OUTPUT); // 6
 
     setupMasterRadio(76); // channel number
-//    radio.begin(); // Start the NRF24L01
-//    radio.setDataRate( RF24_250KBPS );    
-//    radio.openReadingPipe(1,pipe1); // Get NRF24L01 ready to receive
-//    radio.setPALevel(RF24_PA_MIN);
-//    radio.startListening(); // Listen to see if information received    
-//    radio.setChannel(16);    
-//    Serial.println("Channel: " + String(radio.getChannel()));
 }
 
- void setupMasterRadio(int mychannel){ 
+ void setupMasterRadio(int mychannel) { 
     radio.begin(); // Start the NRF24L01
-    delay(10);
-    radio.setDataRate( RF24_250KBPS );
-    //radio.setDataRate( RF24_1MBPS );
+    radio.setDataRate( RF24_250KBPS ); // or use RF24_1MBPS
     radio.setPALevel(RF24_PA_MIN); // MIN, LOW, HIGH, and MAX
     radio.setChannel(mychannel);
-    radio.openReadingPipe(1,pipe1);
-//    radio.openReadingPipe(1, addresses[1]); // Get NRF24L01 ready to receive
+//    radio.openReadingPipe(1,pipe1);
+    radio.openReadingPipe(1, addresses[1]); // Get NRF24L01 ready to receive
     radio.startListening(); // Listen to see if information received
     Serial.println("Channel in setup: " + String(radio.getChannel()));
  
@@ -154,25 +146,12 @@ void setup(void) {
 //===========================
 void loop(void) {
   while (radio.available()) {
-//    setupMasterRadio(76); // channel number
-    //Serial.println("\nWe got one!"); 
     radio.read(&ReceivedMessage, sizeof(ReceivedMessage)); 
-    rm = *ReceivedMessage; 
-    Serial.println("Channel inside main: " + String(radio.getChannel()));
-    Serial.print("Value of Received Message: ");
-    Serial.println(String(ReceivedMessage[0]));
-    Serial.println("RM: " + String(rm) + "\n");
-    //radio.read(&myData, sizeof(myData));
-//    myData = *ReceivedMessage;
-//    Serial.print("Value of Received Message: ");
-//    Serial.print(ReceivedMessage[0].value);
-//    Serial.print("    Type of Data: ");
-//    Serial.println(ReceivedMessage[0].type);
-//    Serial.print("Value of myData: ");
-//    Serial.print(String(myData.value));
-//    Serial.print("    Type of Data: ");
-//    Serial.println(String(myData.type));
-    //receive_rm(myData.type);
+    val = ReceivedMessage[0].value;
+    typ = ReceivedMessage[0].type; 
+    Serial.println("\nChannel inside main: " + String(radio.getChannel()));
+    Serial.println("Value: "+String(val)+"\tType: "+String(typ));
+    receive_rm(typ);
     delay(2000);
   }
 }
@@ -185,17 +164,17 @@ void receive_rm(int c) {
       break;
 
     case 2: // Humidity
-      //h = myData.value;
+      //h = ReceivedMessage[0].value;
       h_lcd_routine();
       break;
 
     case 3: // Temp Celcius
-      //t = myData.value;
+      //t = ReceivedMessage[0].value;
       t_lcd_routine();
       break;
 
     case 4: // Temp Fahrenheit
-      //f = myData.value;
+      //f = ReceivedMessage[0].value;
       f_lcd_routine();
       break;
 
@@ -209,20 +188,20 @@ void co2_lcd_routine(void) {
   //    Serial.print("Validation of CO2: ");
   //    Serial.print(co2);
   Serial.print("CO2 level: ");
-  Serial.println(co2 - sensorOffset);
+  Serial.println(val - sensorOffset);
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("                     ");
   lcd.setCursor(0, 0);
-  lcd.print("CO2: " + String(co2) + " ppm");
+  lcd.print("CO2: " + String(val) + " ppm");
 }
 
 void h_lcd_routine(void) {
-//  h = float(ReceivedMessage[0].value);
+  h = float(ReceivedMessage[0].value);
   //Serial.print("Validation for humidity: ");
-  //Serial.println(ReceivedMessage[0]);
+  //Serial.println(myData[0]);
   Serial.println("Humidity: " + String(h) + "%");
-  Serial.println(h);
+//  Serial.println(h);
   lcd.setCursor(0, 1);
   lcd.print("                    ");
   lcd.setCursor(0, 1);
@@ -232,35 +211,24 @@ void h_lcd_routine(void) {
 }
 
 void t_lcd_routine(void) {
-//  t = float(ReceivedMessage[0].value);
+  t = float(ReceivedMessage[0].value);
   //Serial.print("Validation for temp c: ");
-  //Serial.println(ReceivedMessage[0]);
+  //Serial.println(myData[0]);
   Serial.println("Degrees: " + String(t) + "C");
-  Serial.println(t);
+//  Serial.println(t);
   lcd.setCursor(0, 2);
   lcd.print("                    ");
   lcd.setCursor(0, 2);
   lcd.print(String(t) + " degrees C");
 }
 void f_lcd_routine(void) {
-//  f = float(ReceivedMessage[0].value);
+  f = float(ReceivedMessage[0].value);
   //Serial.print("Validation for temp f: ");
-  //Serial.println(ReceivedMessage[0]);
+  //Serial.println(myData[0]);
   Serial.println("Degrees: " + String(f) + "F");
-  Serial.println(f);
+//  Serial.println(f);
   lcd.setCursor(0, 3);
   lcd.print("                    ");
   lcd.setCursor(0, 3);
   lcd.print(String(f) + " degrees F");
 }
-   
-//    radio.begin(); // Start the NRF24L01
-//    radio.setDataRate( RF24_250KBPS );
-//    //radio.setDataRate( RF24_1MBPS );
-//    radio.setPALevel(RF24_PA_MIN); // MIN, LOW, HIGH, and MAX
-//    //radio.openReadingPipe(1,pipe1);
-//    radio.openReadingPipe(1, addresses[1]); // Get NRF24L01 ready to receive
-//    radio.startListening(); // Listen to see if information received
-//    radio.setChannel(16);
-//    Serial.println("Channel: " + String(radio.getChannel())); 
-//    Serial.println("RF Comms Starting...");
