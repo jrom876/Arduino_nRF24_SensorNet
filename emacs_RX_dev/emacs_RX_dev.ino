@@ -10,24 +10,25 @@
       Creative Engineering Solutions LLC
 
     This module is the dev version of the receiver (RX) in a
-    TX/RX pair. The data is transmitted continuously by the
+    TX/RX pair. 
+    Sensor data is transmitted continuously by the
     TX module's nRF24L01 (2.4 GHz transceiver), which
-    transmits four 32-bit packets of data from 2 sensors:
+    currently transmits packets of data from 2 sensors:
     the DHT-11 (temp and humid), and the K30 (CO2).
+    This will be expanded to include my RF24SensorNet_master
+    libraries, significantly modified from the github version.
+    
     This is a development version only which may change w/o
     notice, and which may contain commented and uncommented
     development code.
+
+    Credits:
+    RF24SensorNet library
+    https://github.com/szaffarano/RF24SensorNet
+    NRF24L01 library
+    TMRh20 https://github.com/TMRh20/RF24
 */
 
-//#include <RF24.h>
-//#include <nRF24L01.h>
-//#include <RF24_config.h>
-//#include <printf.h>
-//#include <SPI.h>
-//#include "SPI.h"
-//#include <stdlib.h>
-//#include <stdio.h> 
-// NRF24L01 library created by TMRh20 https://github.com/TMRh20/RF24
 #include <RF24.h>
 #include <nRF24L01.h>
 #include <RF24_config.h>
@@ -64,15 +65,16 @@
 //#define SCK 52
 //#define SS 53
 
-struct dataStruct {
-  int   type;
-  int   value;
-} myData;
+struct dataStruct{
+  int   chNum;
+  int   radNum;
+  int   co2_val;
+  int   h_val;
+  int   c_val;
+  int   f_val;
+}myData;
 
 byte addresses[][6] = {"1Node", "2Node","3Node","4Node"};
-
-// Receiver address
-const uint32_t pipe1 = 0xC6C6C6C0;
 
 //=============================
 //==== Instantiate modules ====
@@ -81,21 +83,20 @@ RF24 radio(CE, SS); // Arduino Uno pins 9 and 10
 LiquidCrystal lcd(7, 6, 5, 4, 3, 2);
 //=============================
 
-int rm =  0; // Holds ReceivedMessage value
-int co2 = 0;
-int rc  = 1;
-float h = 0;
-float t = 0;
-float f = 0;
-float hif = 0;
-float hic = 0;
-int sensorOffset = 0;
-bool sync = false;
-int val = 0;
-int typ = 0; 
-
-// Used to store value received by the NRF24L01
-//uint32_t ReceivedMessage[1]; 
+int   rm =  0; // Holds ReceivedMessage value
+int   co2 = 0;
+int   rc  = 1;
+int   h = 0;
+int   t = 0;
+int   f = 0;
+int   hif = 0;
+int   hic = 0;
+int   sensorOffset = 0;
+bool  sync = false;
+int   val = 0;
+int   typ = 0; 
+int   chan = 0;
+int   rad = 0; 
 
 // Used to store value received by the NRF24L01
 struct dataStruct ReceivedMessage[1] = {0};
@@ -134,12 +135,13 @@ void setup(void) {
     radio.setDataRate( RF24_250KBPS ); // or use RF24_1MBPS
     radio.setPALevel(RF24_PA_MIN); // MIN, LOW, HIGH, and MAX
     radio.setChannel(mychannel);
-//    radio.openReadingPipe(1,pipe1);
     radio.openReadingPipe(1, addresses[1]); // Get NRF24L01 ready to receive
     radio.startListening(); // Listen to see if information received
-    Serial.println("Channel in setup: " + String(radio.getChannel()));
- 
-    Serial.println("RF Comms Starting...");
+//    Serial.println("Channel in setup: " + String(radio.getChannel()));
+    myData.chNum = mychannel;
+    myData.radNum = 0; // 0 is the master controller's number
+    Serial.print("Master RF Comms Starting on channel "+String(myData.chNum));
+    Serial.println("\tusing radio "+ String(myData.radNum));
  }
 //===========================
 //======== Main Loop ========
@@ -147,88 +149,66 @@ void setup(void) {
 void loop(void) {
   while (radio.available()) {
     radio.read(&ReceivedMessage, sizeof(ReceivedMessage)); 
-    val = ReceivedMessage[0].value;
-    typ = ReceivedMessage[0].type; 
-    Serial.println("\nChannel inside main: " + String(radio.getChannel()));
-    Serial.println("Value: "+String(val)+"\tType: "+String(typ));
-    receive_rm(typ);
-    delay(2000);
+    receive_rm();
+//    delay(2000);
   }
 }
 
-void receive_rm(int c) {
-  switch (c) {
-    case 1: // Start with CO2 reading
-      lcd.clear();
-      co2_lcd_routine();
-      break;
+void receive_rm() {
+  chan = ReceivedMessage[0].chNum;
+  rad  = ReceivedMessage[0].radNum;       
+  co2  = ReceivedMessage[0].co2_val;
+  h    = ReceivedMessage[0].h_val;
+  t    = ReceivedMessage[0].c_val;
+  f    = ReceivedMessage[0].f_val;
+  chan_lcd_routine();
+  co2_lcd_routine();
+  h_lcd_routine();
+  t_lcd_routine();
+  f_lcd_routine(); 
+}
 
-    case 2: // Humidity
-      //h = ReceivedMessage[0].value;
-      h_lcd_routine();
-      break;
-
-    case 3: // Temp Celcius
-      //t = ReceivedMessage[0].value;
-      t_lcd_routine();
-      break;
-
-    case 4: // Temp Fahrenheit
-      //f = ReceivedMessage[0].value;
-      f_lcd_routine();
-      break;
-
-    default: // Error Handling
-      break;
-  }
+void chan_lcd_routine(void) { 
+    Serial.print("\nChannel number: " + String(chan));
+    Serial.println("\tTX Radio number: " + String(rad));
+    lcd.setCursor(0, 0);
+    lcd.print("                    ");
+    lcd.setCursor(0, 0);
+    lcd.print("Chan:" + String(chan) + " Rad:"+String(rad)); 
 }
 
 void co2_lcd_routine(void) {
-//  co2 = ReceivedMessage[0].value;
-  //    Serial.print("Validation of CO2: ");
-  //    Serial.print(co2);
-  Serial.print("CO2 level: ");
-  Serial.println(val - sensorOffset);
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("                     ");
-  lcd.setCursor(0, 0);
-  lcd.print("CO2: " + String(val) + " ppm");
+  Serial.println("CO2 level: "+String(co2));
+//  lcd.clear();
+  lcd.setCursor(0, 1);
+  lcd.print("                    ");
+  lcd.setCursor(0, 1);
+  lcd.print("CO2:" + String(co2) + "ppm");
 }
 
 void h_lcd_routine(void) {
-  h = float(ReceivedMessage[0].value);
-  //Serial.print("Validation for humidity: ");
-  //Serial.println(myData[0]);
+//  h = float(val);
   Serial.println("Humidity: " + String(h) + "%");
-//  Serial.println(h);
-  lcd.setCursor(0, 1);
-  lcd.print("                    ");
-  lcd.setCursor(0, 1);
-  lcd.print("Humidity: " + String(h) + "%");
-  //    lcd.setCursor(0,3);
-  //    lcd.print("                    ");
+  lcd.setCursor(0, 2);
+  lcd.print("                   ");
+  lcd.setCursor(0, 2);
+  lcd.print("Humid:" + String(h) + "%");
 }
 
 void t_lcd_routine(void) {
-  t = float(ReceivedMessage[0].value);
-  //Serial.print("Validation for temp c: ");
-  //Serial.println(myData[0]);
-  Serial.println("Degrees: " + String(t) + "C");
-//  Serial.println(t);
-  lcd.setCursor(0, 2);
-  lcd.print("                    ");
-  lcd.setCursor(0, 2);
-  lcd.print(String(t) + " degrees C");
+//  t = float(val);
+  Serial.println("Degrees C: " + String(t) + "C");
+  lcd.setCursor(0, 3);
+  lcd.print("          ");
+  lcd.setCursor(0, 3);
+  lcd.print("Deg "+String(t) + "C");
 }
 void f_lcd_routine(void) {
-  f = float(ReceivedMessage[0].value);
-  //Serial.print("Validation for temp f: ");
-  //Serial.println(myData[0]);
-  Serial.println("Degrees: " + String(f) + "F");
-//  Serial.println(f);
-  lcd.setCursor(0, 3);
-  lcd.print("                    ");
-  lcd.setCursor(0, 3);
-  lcd.print(String(f) + " degrees F");
+//  f = float(val);
+  Serial.println("Degrees F: " + String(f) + "F");
+  lcd.setCursor(10, 3);
+  lcd.print("          ");
+  lcd.setCursor(10, 3);
+  lcd.print(String(f) + "F");
+  delay(2000);
 }
