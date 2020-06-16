@@ -89,8 +89,8 @@ float hif = 0;
 float hic = 0;
 bool validCO2Flag = false;
 
-//struct dataStruct SentMessage[1] = {0};
-uint32_t SentMessage[1] = {0};
+struct dataStruct SentMessage[1] = {0};
+//uint32_t SentMessage[1] = {0};
 
 //=========================
 //========= Setup =========
@@ -107,17 +107,7 @@ void setup() {
   pinMode(SS, OUTPUT); 
   pinMode(CE, OUTPUT);
 
-  setupTXRadio(1,76); // (radio number, channel number)
-  
-  radio.begin(); // Start the NRF24L01
-  radio.setDataRate( RF24_250KBPS );  
-  //radio.setDataRate( RF24_1MBPS );  
-  radio.openWritingPipe(pipe1); // Get NRF24L01 ready to transmit
-  radio.setPALevel(RF24_PA_MIN); // MIN, LOW, HIGH, and MAX
-  radio.setChannel(76);    
-  Serial.println("Channel: " + String(radio.getChannel()));
-  radio.stopListening(); // Sets radio to Transmitter mode
-  Serial.println("RF Comms Starting...");
+  setupTXRadio(1,76); // (radio number, channel number)  
 }
 
 //==========================
@@ -128,12 +118,15 @@ void loop() {
   delay(2000);
   rc = k30_i2c.readCO2(co2);
   //int co2Value = co2;
-  SentMessage[0] = co2;
+  SentMessage[0].type = 1;
+  SentMessage[0].value = co2;
   if (rc == 0) { 
     validCO2Flag = true;       
-    Serial.print("CO2: ");
-    Serial.println(String(co2) +" ppm");
-//    sendMessage(validCO2Flag);    
+//    Serial.print("CO2: ");
+//    Serial.println(String(SentMessage[0].value) +" ppm");      
+//    Serial.print("Type: ");
+//    Serial.println(String(SentMessage[0].type));
+    sendMessage(validCO2Flag);    
     Serial.println("Channel inside main: " + String(radio.getChannel()));
     radio.write(&SentMessage, sizeof(SentMessage));
     Serial.println("Message sent");
@@ -192,100 +185,90 @@ void setupTXRadio(int rn, int mychannel){
 //===========================
 //=== Send Message Method ===
 //===========================
-//void sendMessage(bool validCO2Flag){
-//  if (validCO2Flag){ // If we get a valid CO2 reading
-//      transmit_co2();
-//      delay(2000);
-//      transmit_h();
-//      delay(2000);
-//      transmit_t();
-//      delay(2000);
-//      transmit_f();
-//      delay(2000);
-//  }
-//  else {
-////    SentMessage[0] = 0;
-//    radio.write(SentMessage, 1);
-//  }
-//}
+void sendMessage(bool validCO2Flag){
+  if (validCO2Flag){ // If we get a valid CO2 reading
+      transmit_co2();
+      delay(2000);
+      transmit_h();
+      delay(2000);
+      transmit_t();
+      delay(2000);
+      transmit_f();
+      delay(2000);
+  }
+  else {
+//    SentMessage[0] = 0;
+    radio.write(SentMessage, 1);
+  }
+}
 
-////================================
-////======= Transmit Methods =======
-////================================
-//  void transmit_co2(void){
-//    myData.type = 1;
-//    myData.value = co2;
-//    SentMessage[0].type = 1;
-//    SentMessage[0].value = co2;
-//    //uint8_t chan = radio.getChannel;
-//    Serial.print("myData Value: ");
-//    Serial.println(String(myData.value)+" ppm");
-//    Serial.print("myData Type: ");
-//    Serial.println(String(myData.type));
-//    Serial.print("SentMessage Value: ");
-//    Serial.println(String(SentMessage[0].value)+" ppm");
-//    Serial.print("SentMessage Type: ");
-//    Serial.println(String(SentMessage[0].type));
-//    radio.write(&SentMessage, sizeof(SentMessage));
-//    //radio.write(&myData, sizeof(myData));
-//    //delay(2000);
-//  }
-////================================
-//  void transmit_h(void){
-//    myData.type = 2;
-//    myData.value = h;
-//    Serial.print(F("Humidity: "));
-//    Serial.println(String(myData.value)+"%  ");
-//    Serial.print("Humidity Type: ");
-//    Serial.println(String(myData.type));
-//    radio.write(&SentMessage, sizeof(SentMessage));
-//    //delay(2000);
-//  }  
-////===============================
-//  void transmit_t(void){
-//    myData.type = 3;
-//    myData.value = t;
-//    Serial.print(F("Temp: "));
-//    Serial.println(String(myData.value)+" degrees C ");
-//    Serial.print("Temp Type: ");
-//    Serial.println(String(myData.type));
-//    radio.write(&SentMessage, sizeof(SentMessage));
-//    //delay(2000);
-//  }
-////===============================
-//  void transmit_f(void){
-//    myData.type = 4;
-//    myData.value = f;
-//    Serial.print(F("Temp: "));
-//    Serial.println(String(myData.value)+" degrees F ");
-//    Serial.print("Temp Type: ");
-//    Serial.println(String(myData.type));
-//    //Serial.println(myData+"F");
-//    radio.write(&SentMessage, sizeof(SentMessage));
-//    //delay(2000);
-//  }
-////===============================
-//  void transmit_hif(void){
-////    myData = hif;
-//    Serial.print(F("Heat Index: "));
-//    Serial.println(String(hif)+"F");
-//    myData.type = 5;
-//    myData.value = hif;
-//    //Serial.println(myData+"F");
-//    radio.write(&SentMessage, sizeof(SentMessage));
-//    //delay(2000);    
-//  }
-////===============================
-//  void transmit_hic(void){
-////    myData = hic;
-//    Serial.print(F("Heat Index: "));
-//    Serial.println(String(f)+"C");
-//    myData.type = 6;
-//    myData.value = hic;
-//    //Serial.println(myData+"C");
-//    radio.write(&SentMessage, sizeof(SentMessage));
-//    //delay(2000);    
-//  }
+//================================
+//======= Transmit Methods =======
+//================================
+  void transmit_co2(void){
+    SentMessage[0].type = 1;
+    SentMessage[0].value = co2;
+    Serial.println("CO2 Value: "+String(SentMessage[0].value)+" ppm");
+    Serial.println("CO2 Type: "+String(SentMessage[0].type));
+    radio.write(&SentMessage, sizeof(SentMessage));
+    //delay(2000);
+  }
+//================================
+  void transmit_h(void){
+    SentMessage[0].type = 2;
+    SentMessage[0].value = h;
+    Serial.print(F("Humidity: "));
+    Serial.println(String(SentMessage[0].value)+"%  ");
+    Serial.print("Humidity Type: ");
+    Serial.println(String(SentMessage[0].type));
+    radio.write(&SentMessage, sizeof(SentMessage));
+    //delay(2000);
+  }  
+//===============================
+  void transmit_t(void){
+    SentMessage[0].type = 3;
+    SentMessage[0].value = t;
+    Serial.print(F("Temp: "));
+    Serial.println(String(SentMessage[0].value)+" degrees C ");
+    Serial.print("Temp Type: ");
+    Serial.println(String(SentMessage[0].type));
+    radio.write(&SentMessage, sizeof(SentMessage));
+    //delay(2000);
+  }
+//===============================
+  void transmit_f(void){
+    SentMessage[0].type = 4;
+    SentMessage[0].value = f;
+    Serial.print(F("Temp: "));
+    Serial.println(String(SentMessage[0].value)+" degrees F ");
+    Serial.print("Temp Type: ");
+    Serial.println(String(SentMessage[0].type));
+    //Serial.println(myData+"F");
+    radio.write(&SentMessage, sizeof(SentMessage));
+    //delay(2000);
+  }
+//===============================
+  void transmit_hif(void){
+//    myData = hif;
+    Serial.print(F("Heat Index: "));
+    Serial.println(String(hif)+"F");
+    SentMessage[0].type = 5;
+    SentMessage[0].value = hif;
+    //Serial.println(myData+"F");
+    radio.write(&SentMessage, sizeof(SentMessage));
+    //delay(2000);    
+  }
+//===============================
+  void transmit_hic(void){
+//    myData = hic;
+    Serial.print(F("Heat Index: "));
+    Serial.println(String(f)+"C");
+    SentMessage[0].type = 6;
+    SentMessage[0].value = hic;
+    //Serial.println(myData+"C");
+    radio.write(&SentMessage, sizeof(SentMessage));
+    //delay(2000);    
+  }
 //=========================================
 //===========  Read DHT Method  ===========
 //=========================================
