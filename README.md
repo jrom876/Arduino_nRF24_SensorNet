@@ -7,4 +7,4 @@ The transmitter uses a k30 CO2 sensor from co2meter.com, an nRF24 transceiver, a
 
 The receiver uses an nRF24 transceiver and a 20x4 LCD display.
 
-This is a stable version of my k30_nRF24 development code.
+This is intended to hold stable versions of my k30_nRF24 development code.
