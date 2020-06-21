@@ -1,10 +1,13 @@
 # k30_nRF24
-Transceiver pair for wireless environmental monitor written in C++ using Arduino, k30, nRF24, and DHT11.
+Transceiver pair for 2.4GHz wireless sensor platform written in C++ using Arduino, k30, nRF24, and DHT11. 
 
-This C++ code is for an Arduino wireless weather station using a transmitter/receiver pair in an observer pattern. 
+The emacs version creates a wireless weather station using a transmitter/receiver pair in an observer pattern. 
 
-The transmitter uses a k30 CO2 sensor from co2meter.com, an nRF24 transceiver, and a DHT11 temperature/humidity sensor. 
+The emacs transmitter uses a k30 CO2 sensor from co2meter.com, an nRF24 transceiver, and a DHT11 temperature/humidity sensor. 
 
-The receiver uses an nRF24 transceiver and a 20x4 LCD display.
+The emacs receiver uses an nRF24 transceiver and a 20x4 LCD display.
 
-This is intended to hold stable versions of my k30_nRF24 development code.
+This repo is intended to hold stable versions of my k30_nRF24 development code.
+
+Future versions will integrate other sensors sch as PIRs, SEN-12642 audio detector, and HH-6130 humid/temp sensor. 
+
