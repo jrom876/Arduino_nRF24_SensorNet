@@ -58,6 +58,20 @@
 #define CE 9
 //#define PIR_PIN 8
 
+enum cmd_type {
+    nada     = 0,   
+    chan_chg = 1, 
+    pa_chg   = 2, 
+    rad_chg  = 4
+};
+
+enum PA_type {
+    PA_MIN = 0,   
+    PA_LOW, 
+    PA_HIGH, 
+    PA_MAX
+};
+
 struct dataStruct{
   int   chNum;
   int   radNum;
@@ -70,8 +84,10 @@ struct dataStruct{
 }myData;
 
 struct pingCmd{
-  int   cmd_type;
-  int   ch_cmd;  
+  cmd_type my_cmd;
+  int      ch_cmd;
+  int      r_num; 
+  int      pa_cmd;   
 }myPing;
 
 byte addresses[][6] = {"1Node","2Node","3Node","4Node","5Node","6Node"};
@@ -93,16 +109,17 @@ int   f = 0;
 int   hif = 0;
 int   hic = 0;
 int   sensorOffset = 0;
-int   typ = 0; 
+//int   typ = 0; 
 int   chan = 0;
 int   rad = 0; 
-int   state;
+PA_type   pwr_lvl;
+int   state; // keep for dev
 
 // Used to store value received by the Master
 struct dataStruct ReceivedMessage[1] = {0};
 
 // Used to store ping sent by the Master to TX
-struct pingCmd PingMessage[1] = {0};
+struct pingCmd PingMessage[1] = {nada,0};
 
 //=========================
 //========= Setup =========
@@ -111,27 +128,15 @@ void setup(void) {
 //    lcd.begin(20, 4);
     Serial.begin(9600);
     SPI.begin();
-//    lcd.clear();
-//    lcd.setCursor(0, 0);
-//    lcd.print("Environmental Sensor");
-//    lcd.setCursor(0, 1);
-//    lcd.print("Standby for data");
-//    lcd.setCursor(0, 2);
-//    lcd.print("TEST DATA THIS LINE");
-//    lcd.setCursor(0, 3);
-//    lcd.print("CES, LLC.");
     delay(1000);
   
     pinMode(SCK, OUTPUT); // 13
     pinMode(MISO, INPUT); // 12
     pinMode(MOSI, OUTPUT); // 11
     pinMode(SS, OUTPUT); // 10
-    pinMode(CE, OUTPUT); // 9  
-//    pinMode(PIR_PIN,INPUT); // 8 test pin
-//    pinMode(RS_LCD, OUTPUT); // 7
-//    pinMode(EN_LCD, OUTPUT); // 6
+    pinMode(CE, OUTPUT); // 9 
 
-    setupMasterRadio(76); // channel number
+    setupMasterRadio(81,PA_MIN); // channel number
 }
 
 //===========================
@@ -139,42 +144,35 @@ void setup(void) {
 //===========================
 void loop(void) {
   receive_data();
+  serialCommInput();
 }
+//===========================
 
 void receive_data() {  
     if (radio.available(addresses[1])) {
       radio.read(&ReceivedMessage, sizeof(ReceivedMessage)); 
       rad = ReceivedMessage[0].radNum;
       receive_rm(rad);
-      //send_master_cmd(12);
     }
     if (radio.available(addresses[2])){
       radio.read(&ReceivedMessage, sizeof(ReceivedMessage)); 
       rad = ReceivedMessage[0].radNum;
       receive_rm(rad);
-      //radio.stopListening(); // Listen to see if information received
-      //send_master_cmd(22);
     }
     if (radio.available(addresses[3])){
       radio.read(&ReceivedMessage, sizeof(ReceivedMessage)); 
       rad = ReceivedMessage[0].radNum;
       receive_rm(rad);
-      //radio.stopListening(); // Listen to see if information received
-      //send_master_cmd(32);
     }
     if (radio.available(addresses[4])){
       radio.read(&ReceivedMessage, sizeof(ReceivedMessage));
       rad = ReceivedMessage[0].radNum; 
       receive_rm(rad);
-      //radio.stopListening(); // Listen to see if information received
-      //send_master_cmd(42);
     }
     if (radio.available(addresses[5])){
       radio.read(&ReceivedMessage, sizeof(ReceivedMessage));
       rad = ReceivedMessage[0].radNum; 
       receive_rm(rad);
-      //radio.stopListening(); // Listen to see if information received
-      //send_master_cmd(52);
     }  
 }
 
@@ -182,10 +180,11 @@ void receive_data() {
 //======= Setup Master Radio ========
 //===================================
 
-void setupMasterRadio(int mychannel) { 
+void setupMasterRadio(int mychannel,PA_type pat) { 
     radio.begin(); // Start the NRF24L01
     radio.setDataRate( RF24_250KBPS ); // RF24_1MBPS, RF24_2MBPS
-    radio.setPALevel(RF24_PA_MIN); // MIN, LOW, HIGH, and MAX
+    setPowerLevel(pat);
+    //radio.setPALevel(RF24_PA_MIN); // MIN, LOW, HIGH, and MAX
     radio.setChannel(mychannel);
     radio.openWritingPipe(addresses[0]);
     radio.openReadingPipe(1, addresses[1]);
@@ -195,13 +194,67 @@ void setupMasterRadio(int mychannel) {
     radio.openReadingPipe(5, addresses[5]); 
     radio.startListening(); // Listen to see if information received
   //    Serial.println("Channel in setup: " + String(radio.getChannel())); // DBPRINT
-    myData.chNum = mychannel;
-    myData.radNum = 0; // 0 is the master controller's number
-    Serial.print("Master RF Comms Starting on channel "+String(myData.chNum));
-    Serial.println("\tusing radio "+ String(myData.radNum));
+//    myData.chNum = mychannel;
+//    myData.radNum = 0; // 0 is the master controller's number
+    //Serial.print("Master RF Comms Starting on channel "+String(myData.chNum));
+    //Serial.println("\tusing radio "+ String(myData.radNum));
 }
+
+//=======================================
+//======= Receive Message  et al ========
+//=======================================
  
 void receive_rm(int radnum) {
+    assignValuesToRcvMsg();
+    switch (radnum) {
+      case 0: // Master only mode, not used
+          //do something when var equals 0
+          break;
+      case 1: // K30 + DHT11 main pipe
+          chan_lcd_routine();
+          co2_lcd_routine();
+          h_lcd_routine();
+          t_lcd_routine();
+          f_lcd_routine();
+          //send_ping_cmd(nada, chan, rad, PA_MIN);
+          break;
+      case 2: // K30 + DHT11 alternate pipe
+          chan_lcd_routine();
+          co2_lcd_routine();
+          h_lcd_routine();
+          t_lcd_routine();
+          f_lcd_routine();
+          break;
+      case 3: // DHT11 only
+          chan_lcd_routine();
+          h_lcd_routine();
+          t_lcd_routine();
+          f_lcd_routine();
+          break;
+      case 4: // Audio detector
+          if (gate) {
+            pir = 0;
+            audio_routine();
+          } 
+          break;
+      case 5: // PIR + Audio detector
+          chan_lcd_routine();
+          if (pir) {
+            gate = 0;
+            pir_routine();
+          }
+          if (gate) {
+            pir = 0;
+            audio_routine();
+          }
+          //send_ping_cmd(nada, chan, rad, PA_LOW); 
+          break;
+      default:
+          break;
+    }
+}
+
+void assignValuesToRcvMsg(){  
     chan = ReceivedMessage[0].chNum;
     rad  = ReceivedMessage[0].radNum;       
     co2  = ReceivedMessage[0].co2_val + sensorOffset;
@@ -210,100 +263,47 @@ void receive_rm(int radnum) {
     f    = ReceivedMessage[0].f_val;
     pir  = ReceivedMessage[0].pir_state;
     gate = ReceivedMessage[0].audio_gate;
-   
-    switch (radnum) {
-      case 0: // Master only mode, not used
-        //do something when var equals 0
+}
+
+void setPowerLevel(PA_type pwr) {
+  switch (pwr) {
+    case 0:
+        radio.setPALevel(RF24_PA_MIN);
         break;
-      case 1: // K30 + DHT11 main pipe
-          chan_lcd_routine();
-          co2_lcd_routine();
-          h_lcd_routine();
-          t_lcd_routine();
-          f_lcd_routine();
+    case 1:
+        radio.setPALevel(RF24_PA_LOW);
         break;
-      case 2: // K30 + DHT11 alternate pipe
-          chan_lcd_routine();
-          co2_lcd_routine();
-          h_lcd_routine();
-          t_lcd_routine();
-          f_lcd_routine();
+    case 2:
+        radio.setPALevel(RF24_PA_HIGH);
         break;
-      case 3: // DHT11 only
-          chan_lcd_routine();
-          h_lcd_routine();
-          t_lcd_routine();
-          f_lcd_routine();
+    case 3:
+        radio.setPALevel(RF24_PA_MAX);
         break;
-      case 4: // Audio detector
-          if (gate) {
-            pir = 0;
-            audio_routine();
-          } 
+    default:
+        //
         break;
-      case 5: // PIR + Audio detector
-          chan_lcd_routine();
-          if (pir && gate) {
-            pir_routine();
-            audio_routine();
-          }
-          else if (pir) {
-            gate = 0;
-            pir_routine();
-          }
-          else if (gate) {
-            pir = 0;
-            audio_routine();
-          } 
-        break;
-      default:
-        // if nothing else matches, do the default
-        // default is optional
-        break;
-    }
+  }
 }
 
 void chan_lcd_routine(void) { 
     Serial.println("\nRX Channel number: " + String(chan));
-    Serial.println("Input Radio number: " + String(rad));
-//    lcd.setCursor(0, 0);
-//    lcd.print("                    ");
-//    lcd.setCursor(0, 0);
-//    lcd.print("Chan: " + String(chan) + "  Radio: "+String(rad)); 
+    Serial.println("Input Radio number: " + String(rad)); 
 }
 
 void co2_lcd_routine(void) {
     Serial.println("CO2 level: "+String(co2));
-  //  lcd.clear();
-//    lcd.setCursor(0, 1);
-//    lcd.print("                    ");
-//    lcd.setCursor(0, 1);
-//    lcd.print("CO2: " + String(co2) + " ppm");
 }
 
 void h_lcd_routine(void) {
     Serial.println("Humidity: " + String(h) + "%");
-//    lcd.setCursor(0, 2);
-//    lcd.print("                   ");
-//    lcd.setCursor(0, 2);
-//    lcd.print("Humid: " + String(h) + "%");
 }
 
 void t_lcd_routine(void) {
     Serial.println("Degrees C: " + String(t) + "C");
-//    lcd.setCursor(0, 3);
-//    lcd.print("          ");
-//    lcd.setCursor(0, 3);
-//    lcd.print("Deg "+String(t) + "C");
 }
 
 void f_lcd_routine(void) {
     Serial.println("Degrees F: " + String(f) + "F");
-//    lcd.setCursor(10, 3);
-//    lcd.print("          ");
-//    lcd.setCursor(10, 3);
-//    lcd.print(String(f) + "F");
-//    delay(2000);
 }
 
 void pir_routine(void) {  
@@ -330,15 +330,20 @@ void audio_routine(void) {
 //======= Send Ping Method =======
 //================================
 
-void send_master_cmd(int msg){
-    PingMessage[0].cmd_type = 1;
-    PingMessage[0].ch_cmd = msg;
-    Serial.println("Sending CMD Type: "+String(PingMessage[0].cmd_type));
-    Serial.println("Sending Channel CMD: "+String(PingMessage[0].ch_cmd));
-//    Serial.println("Channel: " + String(radio.getChannel())); // DBPRINT
-    radio.stopListening(); // Change to TX role just long enough to ping cmd
+void send_ping_cmd(cmd_type cmd, int ch, int rn, PA_type pat){
+    PingMessage[0].my_cmd = cmd;
+    PingMessage[0].ch_cmd = ch;
+    PingMessage[0].r_num = rn;
+    PingMessage[0].pa_cmd = pat;
+    Serial.println("Ping CMD Type: "+String(PingMessage[0].my_cmd));
+    Serial.println("Ping Channel: "+String(PingMessage[0].ch_cmd));
+    Serial.println("Ping Radio Number: "+String(PingMessage[0].r_num));
+    Serial.println("Ping Pwr Level: "+String(PingMessage[0].pa_cmd));
+//    Serial.println("Channel: " + String(radio.getChannel())); // DBPRINT 
+    radio.stopListening(); // Change to TX role just long enough to ping cmd     
+    radio.openWritingPipe(addresses[0]);
     radio.write(&PingMessage, sizeof(PingMessage));
-    radio.startListening(); // Change back to receiver role
+    radio.startListening();
   }
 
 
@@ -347,14 +352,41 @@ void send_master_cmd(int msg){
 //========================================//
 
 void serialCommInput() {
-  if (Serial.available() > 0 ) {
-    if(Serial.peek() == 'c') {
-      Serial.read();
-      state = Serial.parseInt();
-//      digitalWrite(pir,state);??
-    }
-    while (Serial.available() > 0) {
-      Serial.read();
+  if (Serial.available()) {
+    char c = toupper(Serial.read());
+    if (c == 'A' ) {
+      Serial.println("*** CHANGING TX TO CHANNEL 12");
+      send_ping_cmd(chan_chg, 12, rad, PA_MIN);
+    } else if (c == 'B') {
+      Serial.println("*** CHANGING TX TO CHANNEL 81");
+      send_ping_cmd(chan_chg, 81, rad, PA_MIN);
+    } else if (c == 'C') {
+      Serial.println("*** CHANGING TX PA TO MIN");
+      send_ping_cmd(pa_chg, chan, rad, PA_MIN);
+    } else if (c == 'D') {
+      Serial.println("*** CHANGING TX PA TO LOW");
+      send_ping_cmd(pa_chg, chan, rad, PA_LOW);
+    } else if (c == 'E') {
+      Serial.println("*** CHANGING TX PA TO HIGH");
+      send_ping_cmd(pa_chg, chan, rad, PA_HIGH);
+    } else if (c == 'F') {
+      Serial.println("*** CHANGING TX PA TO MAX");
+      send_ping_cmd(pa_chg, chan, rad, PA_MAX);
+    } else if (c == 'G') {
+      Serial.println("*** CHANGING TX Radio TO 1");
+      send_ping_cmd(rad_chg, chan, 1, PA_MIN);
+    } else if (c == 'H') {
+      Serial.println("*** CHANGING TX Radio TO 2");
+      send_ping_cmd(rad_chg, chan, 2, PA_MIN);
+    } else if (c == 'I') {
+      Serial.println("*** CHANGING TX Radio TO 3");
+      send_ping_cmd(rad_chg, chan, 3, PA_MIN);
+    } else if (c == 'J') {
+      Serial.println("*** CHANGING TX Radio to 4");
+      send_ping_cmd(rad_chg, chan, 4, PA_MIN);
+    } else if (c == 'K') {
+      Serial.println("*** CHANGING TX Radio to 5");
+      send_ping_cmd(rad_chg, chan, 5, PA_MIN);
     }
   }
 }
