@@ -44,17 +44,17 @@
 //=================================
 
 enum cmd_type {
-    nada     = 0,   
-    chan_chg = 1, 
-    pa_chg   = 2, 
-    rad_chg  = 4
+    nada      = 0,   
+    chan_chg  = 1, 
+    rad_chg   = 2, 
+    pa_chg    = 4
 };
 
 enum PA_type {
-    PA_MIN = 0,   
-    PA_LOW, 
-    PA_HIGH, 
-    PA_MAX
+    PA_MIN  = 0,   
+    PA_LOW  = 1, 
+    PA_HIGH = 2, 
+    PA_MAX  = 3
 };
 
 struct dataStruct{
@@ -69,10 +69,10 @@ struct dataStruct{
 }myData;
 
 struct pingCmd{
-  cmd_type my_cmd;
-  int      ch_cmd;
-  int      r_num;
-  PA_type  pa_cmd;  
+  cmd_type  my_cmd;
+  int       ch_cmd;
+  int       r_num;
+  PA_type   pa_cmd;  
 }myPing;
 
 byte addresses[][6] = {"1Node","2Node","3Node","4Node","5Node","6Node"};
@@ -91,19 +91,30 @@ int   gate = 0;
 float h = 0;
 float t = 0;
 float f = 0;
+
+int suradNum = 5;
+int suchNum = 81;
+PA_type supwrNum = PA_MIN;
+
+int radNum;
+int chNum;
+PA_type pwrNum;
+
 bool  intruderFlag = false;
-bool  audioFlag = false;
+bool  audioFlag = false; 
+bool  suflag = false;
 unsigned long clocktime;
-cmd_type myCmd = nada;
-int chCmd = 0;
-int radCmd;
-PA_type paCmd;
+
+cmd_type myCmd;
+//int chCmd;
+//int radCmd;
+//PA_type paCmd;
 
 //// Used to store value sent by the TX
 struct dataStruct SentMessage[1] = {0};
 
 // Used to store ping sent by the Master to TX
-struct pingCmd PingMessage[1] = {nada,0,0,PA_MIN};
+struct pingCmd PingMessage[1] = {nada,1,0,PA_MIN};
 
 //=========================
 //========= Setup =========
@@ -120,47 +131,191 @@ void setup() {
   pinMode(AUDIO_GATE_IN, INPUT); // Pin 3
   pinMode(PIR_PIN, INPUT); // Pin 2 
   pinMode(PIN_ANALOG_IN,INPUT); // Pin A0
-  
-  setupTXRadio(5,81); // (radio number, channel number)  
  
+  if(!suflag) {
+    initRadioValues(5,81,PA_MIN);
+    setupTXRadio(radNum,chNum,pwrNum); // (radio number, channel number) 
+    suflag = true; 
+  }   
 }
 
 //==========================
 //======= Main Loop ========
 //==========================
 
-void loop() {
+void loop() {   
   delay(10); 
   pir = digitalRead(PIR_PIN);
   if(pir == 1) intruderFlag = true;
   transmit_pir_state(intruderFlag);  
+  
   gate = digitalRead(AUDIO_GATE_IN);
   if (gate == 1) audioFlag = true;
   transmit_audio_gate(audioFlag);
-  receive_data();
+    
+  if (radio.available(addresses[0])) {
+      radio.read(&PingMessage, sizeof(PingMessage));
+      get_ping_cmd_RX();
+      setupTXRadio(radNum,chNum,pwrNum);
+  } 
 }
 
-void receive_data() {  
-    if (radio.available(addresses[0])) {
-      radio.read(&PingMessage, sizeof(PingMessage)); 
-      myCmd = PingMessage[0].my_cmd;
-      chCmd = PingMessage[0].ch_cmd;
-      radCmd = PingMessage[0].r_num;
-      paCmd = PingMessage[0].pa_cmd;
-      //setupTXRadio(r_num,81); // (radio number, channel number)
-      Serial.println("Ping: "+ String(myCmd)+" "+String(chCmd)+" "+String(radCmd)+" "+String(paCmd));
-      changeRadio(chCmd,radCmd,paCmd);
+//=======================================
+//=== Get Ping Command from RX Master ===
+//=======================================
+void get_ping_cmd_RX() {      
+    myCmd = PingMessage[0].my_cmd;
+    switch (myCmd) {
+      case 0: // change nada
+          break;
+      case 1: // chan_chg only
+          chNum = PingMessage[0].ch_cmd;
+          break;
+      case 2: // rad_chg only
+          //radNum = PingMessage[0].r_num;
+          break;
+      case 3: // chan_chg and rad_chg
+          //chNum = PingMessage[0].ch_cmd;
+          //radNum = PingMessage[0].r_num;
+          break;
+      case 4: // pa_chg only
+          pwrNum = PingMessage[0].pa_cmd;
+          break;
+      case 5: // chan_chg and pa_chg
+          chNum = PingMessage[0].ch_cmd;
+          pwrNum = PingMessage[0].pa_cmd;
+          break;
+      case 6: // rad_chg and pa_chg
+          //radNum = PingMessage[0].r_num;
+          //pwrNum = PingMessage[0].pa_cmd;
+          break;
+      case 7: // change them all. CAUTION!!
+          //chNum = PingMessage[0].ch_cmd;
+          //radNum = PingMessage[0].r_num;
+          //pwrNum = PingMessage[0].pa_cmd;
+          break;
+      default:
+          break;
     }
+    Serial.println("Ping Data: "+String(chNum)+" "+String(radNum)+" "+String(pwrNum));
 }
 
-void changeRadio(int chan, int rad, PA_type pwr) {
-  chan = ((chan <= 255) && (chan >= 0))?chan:255;
-  rad = ((rad <= 5) && (rad >= 0))?rad:0;
-  setupTXRadio(rad,chan); // (radio number, channel number)
-  setPowerLevel(pwr);
-  Serial.println("Changes: "+ String(myCmd)+" "+String(chCmd)+" "+String(radCmd)+" "+String(paCmd));
+//=============================
+//=== Setup TX Radio Method ===
+//=============================
+void setupTXRadio(int rn,int mychannel,PA_type pat){
+  radio.begin(); // Start the NRF24L01
+  radio.setDataRate( RF24_250KBPS ); // RF24_1MBPS, RF24_2MBPS
+  setPowerLevel(pat);  
+//  radNum = rn;
+//  chNum = mychannel;
+//  pwrNum = pat; 
+  //radio.setPALevel(RF24_PA_MIN); // MIN, LOW, HIGH, and MAX
+  SentMessage[0].chNum = mychannel;
+  SentMessage[0].radNum = rn;
+  
+// Open a writing and reading pipe on each radio, with 1Node as the reading pipe
+  if(rn == 1){
+    radio.openWritingPipe(addresses[rn]);
+    radio.openReadingPipe(1,addresses[0]);
+    radio.startListening(); // Initialize radio to RX mode
+    radio.setChannel(mychannel);
+    Serial.println("\nChannel: " + String(radio.getChannel()));
+  }
+  else if (rn == 2){    
+    radio.openWritingPipe(addresses[rn]);
+    radio.openReadingPipe(1,addresses[0]);
+    radio.startListening(); // Initialize radio to RX mode
+    radio.setChannel(mychannel);
+    Serial.println("\nChannel: " + String(radio.getChannel()));
+  }
+  else if (rn == 3){    
+    radio.openWritingPipe(addresses[rn]);
+    radio.openReadingPipe(1,addresses[0]);
+    radio.startListening(); // Initialize radio to RX mode
+    radio.setChannel(mychannel);
+    Serial.println("\nChannel: " + String(radio.getChannel()));
+  }
+  else if (rn == 4){    
+    radio.openWritingPipe(addresses[rn]);
+    radio.openReadingPipe(1,addresses[0]);
+    radio.startListening(); // Initialize radio to RX mode
+    radio.setChannel(mychannel);
+    Serial.println("\nChannel: " + String(radio.getChannel()));
+  }
+  else if (rn == 5){    
+    radio.openWritingPipe(addresses[rn]);
+    radio.openReadingPipe(1,addresses[0]);
+    radio.startListening(); // Initialize radio to RX mode
+    radio.setChannel(mychannel);
+    Serial.println("\nChannel: " + String(radio.getChannel()));
+  }
+  else{
+    radio.openWritingPipe(addresses[0]);
+    radio.openReadingPipe(1,addresses[1]);
+    radio.startListening(); // Initialize radio to RX mode
+  }
+  checkRadioConn();
 }
 
+//======================================
+//======= Check Radio Connection =======
+//======================================
+void checkRadioConn() {    
+    printf_begin(); // Call this before calling printDetails()
+    if (radio.isChipConnected()) {
+      Serial.println("\nRadio Number "+ String(radNum) + " is connected to Channel: " + String(radio.getChannel()));
+      radio.printDetails();  
+      Serial.println("RF Comms Starting...");
+    }else{
+      Serial.println("\nRadio is not connected; showing Channel: " + String(radio.getChannel()));
+      radio.printDetails();
+    }  
+}
+
+//==================================
+//======= Transmit PIR State =======
+//==================================
+void transmit_pir_state(bool sendFlag){
+  if (sendFlag){ // If PIR is activated
+    SentMessage[0].pir_state = digitalRead(PIR_PIN);
+    SentMessage[0].audio_gate = 0;
+    Serial.println("\nPIR Set State: "+String(digitalRead(PIR_PIN)));
+    Serial.println("Sent Msg Radio: " + String(SentMessage[0].radNum));
+    Serial.println("Channel: " + String(radio.getChannel()));
+    radio.stopListening(); // Sets radio to TX mode
+    radio.write(&SentMessage, sizeof(SentMessage));
+    radio.openReadingPipe(1,addresses[0]);
+    radio.startListening(); // Sets radio back to RX mode
+    delay(7000); 
+    intruderFlag = false; 
+    SentMessage[0].pir_state = digitalRead(PIR_PIN);  
+    Serial.println("\nSent Msg PIR State: "+String(SentMessage[0].pir_state));
+  }
+}
+
+//===================================
+//======= Transmit Audio Flag =======
+//===================================
+void transmit_audio_gate(bool agate){
+  if (agate){ // If Audio Alarm is Activated
+    SentMessage[0].audio_gate = 1;
+    SentMessage[0].pir_state = 0;
+    Serial.println("\nAudio Detected ");
+    radio.stopListening(); // Sets radio to TX mode
+    radio.write(&SentMessage, sizeof(SentMessage));
+    radio.openReadingPipe(1,addresses[0]);
+    radio.startListening(); // Sets radio back to RX mode
+    delay(5000);
+    audioFlag = false; 
+    SentMessage[0].audio_gate = 0;    
+    Serial.println("\nAudio Gate: "+String(SentMessage[0].audio_gate));
+  }
+}
+
+//==========================
+//======= Miscellany =======
+//==========================
 void setPowerLevel(PA_type pwr) {
   switch (pwr) {
     case 0:
@@ -176,99 +331,22 @@ void setPowerLevel(PA_type pwr) {
         radio.setPALevel(RF24_PA_MAX);
         break;
     default:
-        //
         break;
   }
 }
 
-//==========================
-//=== Setup Radio Method ===
-//==========================
-void setupTXRadio(int rn, int mychannel){
-  radio.begin(); // Start the NRF24L01
-  radio.setDataRate( RF24_250KBPS ); // RF24_1MBPS, RF24_2MBPS   
-  radio.setPALevel(RF24_PA_MIN); // MIN, LOW, HIGH, and MAX
-  SentMessage[0].chNum = mychannel;
-  SentMessage[0].radNum = rn;
-  
-// Open a writing and reading pipe on each radio, with 1Node as the reading pipe
-  if(rn == 1){
-    radio.openWritingPipe(addresses[rn]);
-    radio.openReadingPipe(1,addresses[0]);
-    //radio.startListening(); // Initialize radio to RX mode
-    radio.setChannel(mychannel);
-    Serial.println("\nChannel: " + String(radio.getChannel()));
-  }
-  else if (rn == 2){    
-    radio.openWritingPipe(addresses[rn]);
-    radio.openReadingPipe(1,addresses[0]);
-    //radio.startListening(); // Initialize radio to RX mode
-    radio.setChannel(mychannel);
-    Serial.println("\nChannel: " + String(radio.getChannel()));
-  }
-  else if (rn == 3){    
-    radio.openWritingPipe(addresses[rn]);
-    radio.openReadingPipe(1,addresses[0]);
-    //radio.startListening(); // Initialize radio to RX mode
-    radio.setChannel(mychannel);
-    Serial.println("\nChannel: " + String(radio.getChannel()));
-  }
-  else if (rn == 4){    
-    radio.openWritingPipe(addresses[rn]);
-    radio.openReadingPipe(1,addresses[0]);
-    //radio.startListening(); // Initialize radio to RX mode
-    radio.setChannel(mychannel);
-    Serial.println("\nChannel: " + String(radio.getChannel()));
-  }
-  else if (rn == 5){    
-    radio.openWritingPipe(addresses[rn]);
-    radio.openReadingPipe(1,addresses[0]);
-    //radio.startListening(); // Initialize radio to RX mode
-    radio.setChannel(mychannel);
-    Serial.println("\nChannel: " + String(radio.getChannel()));
-  }
-  else{
-    radio.openWritingPipe(addresses[0]);
-    radio.openReadingPipe(1,addresses[1]);
-    radio.startListening(); // Initialize radio to RX mode
-  }  
-  Serial.println("RF Comms Starting...");
+void initRadioValues(int rn,int mychannel,PA_type pat) {  
+    radNum = rn;
+    chNum = mychannel;
+    pwrNum = pat;
 }
 
-//==================================
-//======= Transmit PIR State =======
-//==================================
-void transmit_pir_state(bool sendFlag){
-  if (sendFlag){ // If PIR is activated
-    SentMessage[0].pir_state = 1;
-    SentMessage[0].audio_gate = 0;
-    Serial.println("\nPIR Set State: "+String(SentMessage[0].pir_state));
-    Serial.println("Radio: " + String(SentMessage[0].radNum));
-    Serial.println("Channel: " + String(radio.getChannel()));
-    radio.stopListening(); // Sets radio to TX mode
-    radio.write(&SentMessage, sizeof(SentMessage));
-    radio.startListening(); // Sets radio back to RX mode
-    delay(3000); 
-    intruderFlag = false; 
-    SentMessage[0].pir_state = 0;  
-    Serial.println("\nPIR State: "+String(SentMessage[0].pir_state));
-  }
+void get_ping_cmd() {  
+    myCmd = PingMessage[0].my_cmd;
+    chNum = PingMessage[0].ch_cmd;
+    radNum = PingMessage[0].r_num;
+    pwrNum = PingMessage[0].pa_cmd;
+    //setupTXRadio(radNum,chNum,pwrNum); // (radio number, channel number)
+    //changeRadio(chCmd,radCmd,paCmd);
+    Serial.println("Ping Data: "+String(chNum)+" "+String(radNum)+" "+String(pwrNum));
 }
-
-//===================================
-//======= Transmit Audio Flag =======
-//===================================
-void transmit_audio_gate(bool agate){
-  if (agate){ // If Audio Alarm is Activated
-    SentMessage[0].audio_gate = 1;
-    SentMessage[0].pir_state = 0;
-    Serial.println("\nAudio Detected ");
-    radio.stopListening(); // Sets radio to TX mode
-    radio.write(&SentMessage, sizeof(SentMessage));
-    radio.startListening(); // Sets radio back to RX mode
-    delay(3000);
-    audioFlag = false; 
-    SentMessage[0].audio_gate = 0;    
-    Serial.println("\nAudio Gate: "+String(SentMessage[0].audio_gate));
-  }
-} 
