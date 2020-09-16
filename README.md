@@ -9,5 +9,5 @@ The receiver uses an nRF24 transceiver and a 20x4 LCD display.
 
 This repo is intended to hold stable versions of my k30_nRF24 development code.
 
-Future versions will integrate other sensors sch as PIRs, SEN-12642 audio detector, and HH-6130 humid/temp sensor. 
+Future versions will integrate other sensors such as PIRs, SEN-12642 audio detector, and HH-6130 humid/temp sensor. 
 
