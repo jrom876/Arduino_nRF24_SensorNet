@@ -26,6 +26,7 @@
  *   TMRh20 https://github.com/TMRh20/RF24    
  *   K30 library
  *   https://github.com/FirstCypress/K30_CO2_I2C_Arduino
+ *   https://www.seeedstudio.com/blog/2019/11/21/nrf24l01-getting-started-arduino-guide/
  */
  
 //========= Libraries =========//
