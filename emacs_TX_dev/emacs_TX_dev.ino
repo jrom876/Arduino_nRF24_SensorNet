@@ -121,8 +121,8 @@ void loop() {
   if (rc == 0) { 
     validCO2Flag = true;
     sendMessage(validCO2Flag);    
-//    Serial.println("Channel inside main: " + String(radio.getChannel()));
-    radio.write(&SentMessage, sizeof(SentMessage));
+    //Serial.println("Channel inside main: " + String(radio.getChannel()));
+    //radio.write(&SentMessage, sizeof(SentMessage));
     Serial.println("Message sent\n");
   }
   else{
