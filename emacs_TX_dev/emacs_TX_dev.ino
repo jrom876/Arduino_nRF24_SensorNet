@@ -1,4 +1,4 @@
-
+lse validCO2Flag = true;
 /*     
  *     File: emacs_TX_dev.ino
  *     K30 CO2 sensor
@@ -183,6 +183,7 @@ void sendMessage(bool validCO2Flag){
       Serial.println("Radio: "+String(SentMessage[0].radNum));
       Serial.println("Channel: "+String(SentMessage[0].chNum));
       transmit_all();
+      validCO2Flag = false;
 //      delay(1000);
 //      transmit_co2();
 //      delay(2000);
