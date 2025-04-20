@@ -6,7 +6,7 @@
     Arduino MEGA, UNO or NANO
 
       Written by:   Jacob Romero
-      email:        admin@jrom.io
+      email:        jrom876@gmail.com
       Creative Engineering Solutions LLC
 
     This module uses the standard version of the emacs Receiver to energize an audio buzzer
