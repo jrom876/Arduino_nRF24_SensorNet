@@ -7,7 +7,7 @@ lse validCO2Flag = true;
  *     Arduino MEGA, UNO or NANO
  *     
  *     Written by:   Jacob Romero  
- *     email:         
+ *     email:        jrom876@gmail.com 
  *     Creative Engineering Solutions LLC 
  *     
  *   This module is the dev version of the transmitter (TX) in a 
