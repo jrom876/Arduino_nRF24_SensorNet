@@ -7,7 +7,7 @@
  *     Arduino MEGA, UNO or NANO
  *     
  *     Written by:   Jacob Romero  
- *     email:        admin@jrom.io 
+ *     email:        jrom876@gmail.com 
  *     Creative Engineering Solutions LLC 
  *     
  *   This module is the stable version of the transmitter (TX) in a 
