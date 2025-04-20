@@ -1,5 +1,5 @@
 # NRF24_SensorNet
-Transceiver pair for 2.4GHz wireless sensor platform written in C++ using Arduino, k30, nRF24, and DHT11. 
+Transceiver pair for 2.4GHz wireless sensor platform written in C++ using Arduino, k30, nRF24, DHT11, PIR detector, and SEN-12642 audio detector. 
 
 The "emacs" version creates a wireless weather station using a server and a transmitter/receiver pair in an observer pattern. 
 
@@ -9,5 +9,5 @@ The receiver uses an nRF24 transceiver and a 20x4 LCD display.
 
 This repo is intended to hold stable versions of my k30_nRF24 development code.
 
-Future versions will integrate other sensors such as PIRs, SEN-12642 audio detector, and HH-6130 humid/temp sensor. 
+Future versions will integrate other sensors such as HH-6130 humid/temp sensor. 
 
